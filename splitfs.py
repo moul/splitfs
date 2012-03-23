@@ -9,7 +9,7 @@ from threading import Lock
 
 import os
 
-from fuse import FUSE, FuseOSError, Operations, LoggingMixIn
+from fusepy.fuse import FUSE, FuseOSError, Operations, LoggingMixIn
 
 
 class SplitFS(LoggingMixIn, Operations):

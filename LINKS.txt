@@ -1,0 +1,6 @@
+http://www.filesystems.org/
+http://valerieaurora.org/chunkfs/
+http://www.filesystems.org/project-unionfs.html
+http://wrapfs.filesystems.org/
+http://podgorny.cz/moin/UnionFsFuse
+http://sourceforge.net/apps/mediawiki/fuse/index.php?title=FUSE_Python_tutorial
