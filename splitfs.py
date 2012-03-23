@@ -125,14 +125,6 @@ class SplitFS(LoggingMixIn, Operations):
         print "BBBBBBBBBBBB"
         return ret
 
-    #getxattr = None
-
-    #def link(self, target, source):
-    #    return os.link(source, target)
-
-    #def open(self, path, flags):
-    #    file.fh = os.open(path, flags)
-
     def _getManifest(self, path):
         if not os.path.isfile(path):
             return None
@@ -175,18 +167,6 @@ class SplitFS(LoggingMixIn, Operations):
            tuples. attrs is a dict as in getattr."""
         return ['.', '..'] + list(filter(lambda x: x.find('.sf-') == -1, os.listdir('target')))
 
-    #def release(self, path, file):
-    #    pprint(file)
-    #    return os.close(file.manifest)
-
-    #def rename(self, old, new):
-    #    return os.rename(old, self.root + new)
-
-    #def statfs(self, path):
-    #    stv = os.statvfs(path)
-    #    return dict((key, getattr(stv, key)) for key in ('f_bavail', 'f_bfree', 'f_blocks', 'f_bsize', 'f_favail', 'f_ffree', 'f_files', 'f_flag', 'f_frsize', 'f_namemax'))
-
-
     def write(self, path, data, offset, fh):
         print "!!!"
         print data
@@ -206,6 +186,26 @@ class SplitFS(LoggingMixIn, Operations):
         #with open(path, 'r+') as f:
         #    f.truncate(length)
         pass
+
+    #getxattr = None
+
+    #def link(self, target, source):
+    #    return os.link(source, target)
+
+    #def open(self, path, flags):
+    #    file.fh = os.open(path, flags)
+
+    #def release(self, path, file):
+    #    pprint(file)
+    #    return os.close(file.manifest)
+
+    #def rename(self, old, new):
+    #    return os.rename(old, self.root + new)
+
+    #def statfs(self, path):
+    #    stv = os.statvfs(path)
+    #    return dict((key, getattr(stv, key)) for key in ('f_bavail', 'f_bfree', 'f_blocks', 'f_bsize', 'f_favail', 'f_ffree', 'f_files', 'f_flag', 'f_frsize', 'f_namemax'))
+
 
     #listxattr = None
     #mkdir = os.mkdir
