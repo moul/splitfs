@@ -14,11 +14,26 @@ from time import sleep
 
 import os
 
-from fusepy.fuse import FUSE, FuseOSError, Operations, LoggingMixIn
+from fusepy.fuse import FUSE, FuseOSError, Operations
 
 DEFAULT_CHUNK_SIZE = 20   # 20 B
 #DEFAULT_CHUNK_SIZE = 1 * 1024 * 1024 # 1 MB
 DEFAULT_CHUNK_SIZE = 200 * 1024 # 200 KB
+
+class LoggingMixIn:
+    def __call__(self, op, path, *args):
+        if op in ['access', 'getattr', 'statfs', 'getxattr']:
+            return getattr(self, op)(path, *args)
+        print '->', op, path, repr(args)
+        ret = '[Unhandled Exception]'
+        try:
+            ret = getattr(self, op)(path, *args)
+            return ret
+        except OSError, e:
+            ret = str(e)
+            raise
+        finally:
+            print '<-', op, repr(ret)
 
 class SplitFILE(object):
     manifest = None
@@ -43,9 +58,6 @@ class SplitFILE(object):
                 'chunk_size': self.chunk_size,
                 'size': self.size
                 })
-
-class SplitFUSE(FUSE):
-    pass
 
 class SplitFS(LoggingMixIn, Operations):
     def __init__(self, root, sleep = None):
@@ -156,4 +168,4 @@ if __name__ == "__main__":
     if len(argv) != 3:
         print 'usage: %s <root> <mountpoint>' % argv[0]
         exit(1)
-    fuse = SplitFUSE(SplitFS(argv[1], sleep = 0.01), argv[2], foreground=True, raw_fi = False)
+    fuse = FUSE(SplitFS(argv[1], sleep = 0), argv[2], foreground=True, raw_fi = False)
