@@ -28,7 +28,8 @@ class SplitFS(LoggingMixIn, Operations):
     chown = os.chown
 
     def create(self, path, mode, file):
-        return os.open(path, os.O_WRONLY | os.O_CREAT, mode)
+        file.fh = os.open(path, os.O_WRONLY | os.O_CREAT, mode)
+        return 0
 
     def flush(self, path, file):
         return os.fsync(file.fh)
