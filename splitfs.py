@@ -10,6 +10,7 @@ from pprint import pprint
 from json import dumps as serialize
 from json import loads as unserialize
 from sys import exit
+from time import sleep
 
 import os
 
@@ -47,19 +48,18 @@ class SplitFUSE(FUSE):
     pass
 
 class SplitFS(LoggingMixIn, Operations):
-    def __init__(self, root):
+    def __init__(self, root, sleep = None):
         self.root = realpath(root)
         self.rwlock = Lock()
+        self.sleep = sleep
 
     def __del__(self):
         pass
 
     def __call__(self, op, path, *args):
+        if self.sleep:
+            sleep(self.sleep)
         return super(SplitFS, self).__call__(op, self.root + path, *args)
-
-    #def access(self, path, mode):
-    #    if not os.access(path, mode):
-    #        raise FuseOSError(EACCES)
 
     chmod = os.chmod
     chown = os.chown
@@ -73,22 +73,12 @@ class SplitFS(LoggingMixIn, Operations):
         self._saveManifest(path, sf)
         return 0
 
-    #def flush(self, path, file):
-    #    return os.fsync(file.fh)
-
-    #def fsync(self, path, datasync, fh):
-    #    return os.fsync(fh)
-
     def getattr(self, path, fh=None):
         st = os.lstat(path)
         ret = dict((key, getattr(st, key)) for key in ('st_atime', 'st_ctime', 'st_gid', 'st_mode', 'st_mtime', 'st_nlink', 'st_size', 'st_uid'))
         manifest = self._getManifest(path)
         if manifest and manifest.size is not None:
             ret['st_size'] = manifest.size
-        print "AAAAAAAAAAAA"
-        print manifest
-        print ret
-        print "BBBBBBBBBBBB"
         return ret
 
     def _saveManifest(self, path, sf):
@@ -107,12 +97,11 @@ class SplitFS(LoggingMixIn, Operations):
     def _relativeFileOffset(self, manifest, offset = 0, size = None, chunk_size = None):
         if chunk_size is None:
             chunk_size = manifest.chunk_size
-        #manifest = self._getManifest(path)
         start_file, start_offset = int(offset / chunk_size), int(offset % chunk_size)
         if size is None:
             return start_file, start_offset
         end_file, end_offset = int((offset + size) / chunk_size), int((offset + size) % chunk_size)
-        print "offset", offset, "size", size, "end_file", end_file, "end_offset", end_offset
+        #print "offset", offset, "size", size, "end_file", end_file, "end_offset", end_offset
         return start_file, start_offset, end_file, end_offset
 
     def _chunkPath(self, path, nth):
@@ -123,7 +112,7 @@ class SplitFS(LoggingMixIn, Operations):
             manifest = self._getManifest(path)
             chunk_size = manifest.chunk_size
             start_file, start_offset, end_file, end_offset = self._relativeFileOffset(manifest, offset = offset, size = size)
-            print "READ: path=%s,size=%d,offset=%d,fh=%d, start=%s, end=%s, chunk_size: %d\n" % (path, size, offset, fh, (start_file, start_offset,), (end_file, end_offset,), chunk_size)
+            #print "READ: path=%s,size=%d,offset=%d,fh=%d, start=%s, end=%s, chunk_size: %d\n" % (path, size, offset, fh, (start_file, start_offset,), (end_file, end_offset,), chunk_size)
             buff = ""
             for nth in xrange(start_file, end_file + 1):
                 chunk = open(self._chunkPath(path, nth))
@@ -161,43 +150,10 @@ class SplitFS(LoggingMixIn, Operations):
             return wrote_size
 
     def truncate(self, path, length, fh=None):
-        #with open(path, 'r+') as f:
-        #    f.truncate(length)
         pass
-
-    #getxattr = None
-
-    #def link(self, target, source):
-    #    return os.link(source, target)
-
-    #def open(self, path, flags):
-    #    file.fh = os.open(path, flags)
-
-    #def release(self, path, file):
-    #    pprint(file)
-    #    return os.close(file.manifest)
-
-    #def rename(self, old, new):
-    #    return os.rename(old, self.root + new)
-
-    #def statfs(self, path):
-    #    stv = os.statvfs(path)
-    #    return dict((key, getattr(stv, key)) for key in ('f_bavail', 'f_bfree', 'f_blocks', 'f_bsize', 'f_favail', 'f_ffree', 'f_files', 'f_flag', 'f_frsize', 'f_namemax'))
-
-
-    #listxattr = None
-    #mkdir = os.mkdir
-    #mknod = os.mknod
-    #mknod = None
-    #readlink = os.readlink
-    #rmdir = os.rmdir
-    #unlink = os.unlink
-    #utimens = os.utime
-
-
 
 if __name__ == "__main__":
     if len(argv) != 3:
         print 'usage: %s <root> <mountpoint>' % argv[0]
         exit(1)
-    fuse = SplitFUSE(SplitFS(argv[1]), argv[2], foreground=True, raw_fi = False)
+    fuse = SplitFUSE(SplitFS(argv[1], sleep = 0.01), argv[2], foreground=True, raw_fi = False)

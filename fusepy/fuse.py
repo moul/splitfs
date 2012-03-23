@@ -680,10 +680,10 @@ class Operations(object):
     def write(self, path, data, offset, fh):
         raise FuseOSError(EROFS)
 
-from time import sleep
+#from time import sleep
 class LoggingMixIn:
     def __call__(self, op, path, *args):
-        sleep(.01)
+        #sleep(.01)
         if op in ['access', 'getattr', 'statfs', 'getxattr']:
             return getattr(self, op)(path, *args)
         print '->', op, path, repr(args)
