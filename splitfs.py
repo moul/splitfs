@@ -15,8 +15,9 @@ import os
 
 from fusepy.fuse import FUSE, FuseOSError, Operations, LoggingMixIn
 
-DEFAULT_CHUNK_SIZE = 20   # 20B
-DEFAULT_CHUNK_SIZE = 1 * 1024 * 1024 # 1MB
+DEFAULT_CHUNK_SIZE = 20   # 20 B
+#DEFAULT_CHUNK_SIZE = 1 * 1024 * 1024 # 1 MB
+DEFAULT_CHUNK_SIZE = 200 * 1024 # 200 KB
 
 class SplitFILE(object):
     manifest = None
@@ -148,15 +149,16 @@ class SplitFS(LoggingMixIn, Operations):
                 chunk = os.open(self._chunkPath(path, nth), os.O_WRONLY | os.O_CREAT, 0777)
                 write_size = manifest.chunk_size
                 if start_file == nth and start_offset:
-                    chunk.seek(start_offset)
+                    os.lseek(chunk, start_offset, os.SEEK_SET)
                     write_size -= start_offset
                 if end_file == nth:
                     write_size -= (manifest.chunk_size - end_offset)
                 wrote_size += os.write(chunk, data[wrote_size:(wrote_size + write_size)])
                 os.close(chunk)
-            manifest.size += wrote_size
+                manifest.size = max(manifest.size, nth * manifest.chunk_size + end_offset)
+            #manifest.size += wrote_size
             self._saveManifest(path, manifest)
-            return manifest.size
+            return wrote_size
 
     def truncate(self, path, length, fh=None):
         #with open(path, 'r+') as f:
