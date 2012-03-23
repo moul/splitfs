@@ -28,7 +28,7 @@ class SplitFILE(object):
     size = None
 
     def __init__(self, data = None):
-        if len(data):
+        if data is not None and len(data):
             data = unserialize(data)
             for key, value in data.items():
                 setattr(self, key, value)
@@ -44,39 +44,6 @@ class SplitFILE(object):
 
 class SplitFUSE(FUSE):
     pass
-"""    def open(self, path, fip):
-        print "OPEN"
-        print dir(fip)
-        pprint(fip)
-        fi = fip.contents
-        if self.raw_fi:
-            return self.operations('open', path, fi)
-        else:
-            fi.fh = self.operations('open', path, fi.flags)
-            return 0
-
-    def create(self, path, mode, fip):
-        print "CREATE"
-        print dir(fip)
-        pprint(fip)
-        fi = fip.contents
-        if self.raw_fi:
-            return self.operations('create', path, mode, fi)
-        else:
-            fi.fh = self.operations('create', path, mode)
-            return 0
-
-    def release(self, path, fip):
-        print "RELEASE"
-        print dir(fip)
-        pprint(fip)
-        print dir(fip.contents)
-        print dir(fip._type_)
-        print dir(fip._objects)
-        print dir(fip.contents.fh)
-        fh = fip.contents if self.raw_fi else fip.contents.fh
-        return self.operations('release', path, fh)
-"""
 
 class SplitFS(LoggingMixIn, Operations):
     def __init__(self, root):
@@ -96,15 +63,14 @@ class SplitFS(LoggingMixIn, Operations):
     chmod = os.chmod
     chown = os.chown
 
+
     def create(self, path, mode):
         if os.path.basename(path) == 'restart':
             exit(0)
         sf = SplitFILE()
         sf.mode = mode
         sf.path = path
-        manifest = os.open(path, os.O_WRONLY | os.O_CREAT, 0777)
-        os.write(manifest, str(sf) + '\n')
-        os.close(manifest)
+        self._saveManifest(path, sf)
         return 0
 
     #def flush(self, path, file):
@@ -117,13 +83,18 @@ class SplitFS(LoggingMixIn, Operations):
         st = os.lstat(path)
         ret = dict((key, getattr(st, key)) for key in ('st_atime', 'st_ctime', 'st_gid', 'st_mode', 'st_mtime', 'st_nlink', 'st_size', 'st_uid'))
         manifest = self._getManifest(path)
-        if manifest:
+        if manifest and manifest.size is not None:
             ret['st_size'] = manifest.size
         print "AAAAAAAAAAAA"
         print manifest
         print ret
         print "BBBBBBBBBBBB"
         return ret
+
+    def _saveManifest(self, path, sf):
+        manifest = os.open(path, os.O_WRONLY | os.O_CREAT, 0777)
+        os.write(manifest, str(sf) + '\n')
+        os.close(manifest)
 
     def _getManifest(self, path):
         if not os.path.isfile(path):
@@ -133,8 +104,8 @@ class SplitFS(LoggingMixIn, Operations):
         fh.close()
         return SplitFILE(data)
 
-    def _relativeFileOffset(self, path, offset = 0, size = None):
-        manifest = self._getManifest(path)
+    def _relativeFileOffset(self, manifest, offset = 0, size = None):
+        #manifest = self._getManifest(path)
         start = (int(offset / manifest.chunk_size), int(offset % manifest.chunk_size))
         if size is None:
             return start, manifest.chunk_size
@@ -147,7 +118,8 @@ class SplitFS(LoggingMixIn, Operations):
     def read(self, path, size, offset, fh = None):
         """Returns a string containing the data requested."""
         with self.rwlock:
-            start, end, chunk_size = self._relativeFileOffset(path, offset = offset, size = size)
+            manifest = self._getManifest(path)
+            start, end, chunk_size = self._relativeFileOffset(manifest, offset = offset, size = size)
             ret = "READ: path=%s,size=%d,offset=%d,fh=%d, start=%s, end=%s, chunk_size: %d\n" % (path, size, offset, fh, start, end, chunk_size)
             buff = ""
             for nth in xrange(start[0], end[0] + 1):
@@ -168,13 +140,13 @@ class SplitFS(LoggingMixIn, Operations):
         return ['.', '..'] + list(filter(lambda x: x.find('.sf-') == -1, os.listdir('target')))
 
     def write(self, path, data, offset, fh):
-        print "!!!"
-        print data
-        print "!!!"
-        manifest = self._getManifest(path)
-        print manifest
-        return len(data)
-        #with self.rwlock:
+        with self.rwlock:
+            print "!!!"
+            print data
+            print "!!!"
+            manifest = self._getManifest(path)
+            print manifest
+            return len(data)
         #    os.lseek(fh, offset, 0)
         #    return os.write(file.fh, data)
 
