@@ -16,7 +16,7 @@ import os
 from fusepy.fuse import FUSE, FuseOSError, Operations, LoggingMixIn
 
 DEFAULT_CHUNK_SIZE = 20   # 20B
-#DEFAULT_CHUNK_SIZE = 1 * 1024 * 1024 = # 1MB
+DEFAULT_CHUNK_SIZE = 1 * 1024 * 1024 # 1MB
 
 class SplitFILE(object):
     manifest = None
@@ -25,7 +25,7 @@ class SplitFILE(object):
     mode = None
     chunks = []
     chunk_size = DEFAULT_CHUNK_SIZE
-    size = None
+    size = 0
 
     def __init__(self, data = None):
         if data is not None and len(data):
@@ -62,7 +62,6 @@ class SplitFS(LoggingMixIn, Operations):
 
     chmod = os.chmod
     chown = os.chown
-
 
     def create(self, path, mode):
         if os.path.basename(path) == 'restart':
@@ -104,55 +103,60 @@ class SplitFS(LoggingMixIn, Operations):
         fh.close()
         return SplitFILE(data)
 
-    def _relativeFileOffset(self, manifest, offset = 0, size = None):
+    def _relativeFileOffset(self, manifest, offset = 0, size = None, chunk_size = None):
+        if chunk_size is None:
+            chunk_size = manifest.chunk_size
         #manifest = self._getManifest(path)
-        start = (int(offset / manifest.chunk_size), int(offset % manifest.chunk_size))
+        start_file, start_offset = int(offset / chunk_size), int(offset % chunk_size)
         if size is None:
-            return start, manifest.chunk_size
-        end = (int((offset + size) / manifest.chunk_size), int((offset + size) % manifest.chunk_size))
-        return start, end, manifest.chunk_size
+            return start_file, start_offset
+        end_file, end_offset = int((offset + size) / chunk_size), int((offset + size) % chunk_size)
+        print "offset", offset, "size", size, "end_file", end_file, "end_offset", end_offset
+        return start_file, start_offset, end_file, end_offset
 
     def _chunkPath(self, path, nth):
         return path + '.sf-%d' % nth
 
     def read(self, path, size, offset, fh = None):
-        """Returns a string containing the data requested."""
         with self.rwlock:
             manifest = self._getManifest(path)
-            start, end, chunk_size = self._relativeFileOffset(manifest, offset = offset, size = size)
-            ret = "READ: path=%s,size=%d,offset=%d,fh=%d, start=%s, end=%s, chunk_size: %d\n" % (path, size, offset, fh, start, end, chunk_size)
+            chunk_size = manifest.chunk_size
+            start_file, start_offset, end_file, end_offset = self._relativeFileOffset(manifest, offset = offset, size = size)
+            print "READ: path=%s,size=%d,offset=%d,fh=%d, start=%s, end=%s, chunk_size: %d\n" % (path, size, offset, fh, (start_file, start_offset,), (end_file, end_offset,), chunk_size)
             buff = ""
-            for nth in xrange(start[0], end[0] + 1):
+            for nth in xrange(start_file, end_file + 1):
                 chunk = open(self._chunkPath(path, nth))
                 read_size = chunk_size
-                if start[0] == nth and start[1]:
-                    chunk.seek(start[1])
-                    read_size -= start[1]
-                if end[0] == nth:
-                    read_size -= (chunk_size - end[1])
+                if start_file == nth and start_offset:
+                    chunk.seek(start_offset)
+                    read_size -= start_offset
+                if end_file == nth:
+                    read_size -= (chunk_size - end_offset)
                 buff += chunk.read(read_size)
                 chunk.close()
             return buff
 
     def readdir(self, path, fh):
-        """Can return either a list of names, or a list of (name, attrs, offset)
-           tuples. attrs is a dict as in getattr."""
         return ['.', '..'] + list(filter(lambda x: x.find('.sf-') == -1, os.listdir('target')))
 
     def write(self, path, data, offset, fh):
         with self.rwlock:
-            print "!!!"
-            print data
-            print "!!!"
             manifest = self._getManifest(path)
-            print manifest
-            return len(data)
-        #    os.lseek(fh, offset, 0)
-        #    return os.write(file.fh, data)
-
-    #def symlink(self, target, source):
-    #    raise MANFRED
-    #    return os.symlink(source, target)
+            start_file, start_offset, end_file, end_offset = self._relativeFileOffset(manifest, offset = offset, size = len(data))
+            wrote_size = 0
+            for nth in xrange(start_file, end_file + 1):
+                chunk = os.open(self._chunkPath(path, nth), os.O_WRONLY | os.O_CREAT, 0777)
+                write_size = manifest.chunk_size
+                if start_file == nth and start_offset:
+                    chunk.seek(start_offset)
+                    write_size -= start_offset
+                if end_file == nth:
+                    write_size -= (manifest.chunk_size - end_offset)
+                wrote_size += os.write(chunk, data[wrote_size:(wrote_size + write_size)])
+                os.close(chunk)
+            manifest.size += wrote_size
+            self._saveManifest(path, manifest)
+            return manifest.size
 
     def truncate(self, path, length, fh=None):
         #with open(path, 'r+') as f:
