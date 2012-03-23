@@ -4,9 +4,10 @@ BIN="$(pwd)/splitfs.py"
 MOUNTPOINT="$(pwd)/mountpoint/"
 OPTS="target=$(pwd)/target/"
 #EXTRA_ARGS=$EXTRA_ARGS -d
+OPTS=$OPTS,"nonempty"
 EXTRA_ARGS="$EXTRA_ARGS -f"
 
-BIN="$(pwd)/cachefs.py"
+BIN="$(pwd)/tmp/cachefs.py"
 OPTS=$OPTS,"cache=$(pwd)/cache/"
 
 
