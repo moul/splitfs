@@ -684,8 +684,8 @@ class Operations(object):
 class LoggingMixIn:
     def __call__(self, op, path, *args):
         #sleep(.01)
-        if op in ['access', 'getattr', 'statfs', 'getxattr']:
-            return getattr(self, op)(path, *args)
+        #if op in ['access', 'getattr', 'statfs', 'getxattr']:
+        #    return getattr(self, op)(path, *args)
         print '->', op, path, repr(args)
         ret = '[Unhandled Exception]'
         try:

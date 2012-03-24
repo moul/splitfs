@@ -47,7 +47,7 @@ def parseSize(text):
         text = text[1:]
     num = float(num)
     letter = text.strip().lower()
-    return num * (prefixes[letter] if letter in prefixes else 1)
+    return int(num * (prefixes[letter] if letter in prefixes else 1))
 
 def saveManifest(path, sf):
     fh = os.open(path, os.O_WRONLY | os.O_CREAT, 0777)
@@ -95,8 +95,6 @@ class SplitFS(LoggingMixIn, Operations):
     chown = os.chown
 
     def create(self, path, mode):
-        if os.path.basename(path) == 'restart':
-            exit(0)
         saveManifest(path, {'mode': mode, 'path': path, 'chunk_size': self.chunk_size})
         return 0
 
@@ -145,6 +143,13 @@ class SplitFS(LoggingMixIn, Operations):
                     write_size -= start_offset
                 if end_file == nth:
                     write_size -= (chunk_size - end_offset)
+                print "____________"
+                #print data
+                print chunk
+                print wrote_size
+                print write_size
+                print wrote_size + write_size
+                print "____________"
                 wrote_size += os.write(chunk, data[wrote_size:(wrote_size + write_size)])
                 os.close(chunk)
                 manifest['size'] = max(manifest.get('size'), nth * chunk_size + end_offset)
