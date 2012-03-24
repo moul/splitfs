@@ -127,7 +127,7 @@ class SplitFS(LoggingMixIn, Operations):
             return buff
 
     def readdir(self, path, fh):
-        return ['.', '..'] + list(filter(lambda x: x.find('.sf-') == -1, os.listdir('target')))
+        return ['.', '..'] + list(filter(lambda x: x.find('.sf-') == -1, os.listdir(path)))
 
     def write(self, path, data, offset, fh):
         with self.rwlock:
