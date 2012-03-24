@@ -16,9 +16,7 @@ import os
 
 from fusepy.fuse import FUSE, FuseOSError, Operations
 
-DEFAULT_CHUNK_SIZE = 20   # 20 B
-DEFAULT_CHUNK_SIZE = 1 * 1024 * 1024 # 1 MB
-DEFAULT_CHUNK_SIZE = 200 * 1024 # 200 KB
+DEFAULT_CHUNK_SIZE = '200K'
 
 class LoggingMixIn:
     def __call__(self, op, path, *args):
@@ -35,30 +33,21 @@ class LoggingMixIn:
         finally:
             print '<-', op, repr(ret)
 
-"""class SplitFILE(object):
-    manifest = None
-    stat = None
-    path = None
-    mode = None
-    chunks = []
-    chunk_size = DEFAULT_CHUNK_SIZE
-    size = 0
-
-    def __init__(self, data = None):
-        if data is not None and len(data):
-            data = unserialize(data)
-            for key, value in data.items():
-                setattr(self, key, value)
-
-    def __str__(self):
-        return serialize({
-                'stat': self.stat,
-                'path': self.path,
-                'mode': self.mode,
-                'chunk_size': self.chunk_size,
-                'size': self.size
-                })
-"""
+def parseSize(text):
+    prefixes = {
+        'b': 1,
+        'k': 1024, 'ki': 1024, 'kb': 1024,
+        'm': 1024 * 1024, 'mb': 1024 * 1024,
+        'g': 1024 * 1024 * 1024, 'gb': 1024 * 1024 * 1024
+        }
+    num = ""
+    text = str(text).strip()
+    while text and text[0:1].isdigit() or text[0:1] == '.':
+        num += text[0]
+        text = text[1:]
+    num = float(num)
+    letter = text.strip().lower()
+    return num * (prefixes[letter] if letter in prefixes else 1)
 
 def saveManifest(path, sf):
     fh = os.open(path, os.O_WRONLY | os.O_CREAT, 0777)
@@ -87,7 +76,7 @@ def chunkPath(path, nth):
     return path + '.sf-%d' % nth
 
 class SplitFS(LoggingMixIn, Operations):
-    def __init__(self, root, sleep = None, chunk_size = DEFAULT_CHUNK_SIZE):
+    def __init__(self, root, sleep = None, chunk_size = parseSize(DEFAULT_CHUNK_SIZE)):
         self.root = realpath(root)
         self.rwlock = Lock()
         self.sleep = sleep
@@ -169,4 +158,4 @@ if __name__ == "__main__":
     if len(argv) != 3:
         print 'usage: %s <root> <mountpoint>' % argv[0]
         exit(1)
-    fuse = FUSE(SplitFS(argv[1], sleep = 0, chunk_size = DEFAULT_CHUNK_SIZE), argv[2], foreground=True, raw_fi = False)
+    fuse = FUSE(SplitFS(argv[1], sleep = 0, chunk_size = parseSize(DEFAULT_CHUNK_SIZE)), argv[2], foreground=True, raw_fi = False)
