@@ -16,6 +16,7 @@ import os
 
 from fusepy.fuse import FUSE, FuseOSError, Operations
 
+__version__ = '0.2.0'
 DEFAULT_CHUNK_SIZE = '2M'
 
 class LoggingMixIn:
