@@ -11,18 +11,23 @@ from json import dumps as serialize
 from json import loads as unserialize
 from sys import exit
 from time import sleep
+from textwrap import wrap
 
 import os
 
 from fusepy.fuse import FUSE, FuseOSError, Operations
 
-DEFAULT_CHUNK_SIZE = '2M'
+DEFAULT_CHUNK_SIZE = '20M'
+FULL_DEBUG = True
 
 class LoggingMixIn:
     def __call__(self, op, path, *args):
         if op in ['access', 'getattr', 'statfs', 'getxattr']:
             return getattr(self, op)(path, *args)
-        print '->', op, path, repr(args)
+        if FULL_DEBUG:
+            print '->', op, path, wrap(repr(args), 100)[0]
+        else:
+            print '->', op, path
         ret = '[Unhandled Exception]'
         try:
             ret = getattr(self, op)(path, *args)
@@ -31,7 +36,10 @@ class LoggingMixIn:
             ret = str(e)
             raise
         finally:
-            print '<-', op, repr(ret)
+            if FULL_DEBUG:
+                print '<-', op, wrap(repr(ret), 100)[0]
+            else:
+                print '<-', op
 
 def parseSize(text):
     prefixes = {
@@ -102,7 +110,7 @@ class SplitFS(LoggingMixIn, Operations):
         st = os.lstat(path)
         ret = dict((key, getattr(st, key)) for key in ('st_atime', 'st_ctime', 'st_gid', 'st_mode', 'st_mtime', 'st_nlink', 'st_size', 'st_uid'))
         manifest = getManifest(path)
-        print manifest
+        #print manifest
         if manifest and manifest.get('size', None) is not None:
             ret['st_size'] = manifest.get('size')
         return ret
@@ -112,7 +120,7 @@ class SplitFS(LoggingMixIn, Operations):
             manifest = getManifest(path)
             chunk_size = manifest.get('chunk_size')
             start_file, start_offset, end_file, end_offset = relativeFileOffset(manifest, offset = offset, size = size)
-            #print "READ: path=%s,size=%d,offset=%d,fh=%d, start=%s, end=%s, chunk_size: %d\n" % (path, size, offset, fh, (start_file, start_offset,), (end_file, end_offset,), chunk_size)
+            print "READ: path=%s,size=%d,offset=%d,fh=%d, start=%s, end=%s, chunk_size: %d\n" % (path, size, offset, fh, (start_file, start_offset,), (end_file, end_offset,), chunk_size)
             buff = ""
             for nth in xrange(start_file, end_file + 1):
                 chunk = open(chunkPath(path, nth))
@@ -143,13 +151,13 @@ class SplitFS(LoggingMixIn, Operations):
                     write_size -= start_offset
                 if end_file == nth:
                     write_size -= (chunk_size - end_offset)
-                print "____________"
-                #print data
-                print chunk
-                print wrote_size
-                print write_size
-                print wrote_size + write_size
-                print "____________"
+                #print "____________"
+                ##print data
+                #print chunk
+                #print wrote_size
+                #print write_size
+                #print wrote_size + write_size
+                #print "____________"
                 wrote_size += os.write(chunk, data[wrote_size:(wrote_size + write_size)])
                 os.close(chunk)
                 manifest['size'] = max(manifest.get('size'), nth * chunk_size + end_offset)
